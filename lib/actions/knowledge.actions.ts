@@ -5,6 +5,15 @@ import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { load as cheerioLoad } from "cheerio";
 import { PDFParse } from "pdf-parse";
+import path from "path";
+
+// Point pdf-parse to the bundled worker so it resolves correctly in SSR/Node.js
+PDFParse.setWorker(
+  path.resolve(
+    process.cwd(),
+    "node_modules/pdf-parse/dist/pdf-parse/cjs/pdf.worker.mjs"
+  )
+);
 
 export type KnowledgeActionState = {
   errors?: Record<string, string[]>;

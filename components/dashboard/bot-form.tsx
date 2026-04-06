@@ -532,11 +532,10 @@ export function BotForm({ bot }: BotFormProps) {
                 <button
                   type="button"
                   onClick={() => setRightPanel("preview")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                    rightPanel === "preview"
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${rightPanel === "preview"
                       ? "text-[#111]"
                       : "text-[#aaa] hover:text-[#555]"
-                  }`}
+                    }`}
                   style={rightPanel === "preview" ? { backgroundColor: "#fff", border: "1px solid #e5e5e5" } : {}}
                 >
                   <Eye className="w-3 h-3" />
@@ -547,11 +546,10 @@ export function BotForm({ bot }: BotFormProps) {
                   onClick={() => setRightPanel("test")}
                   disabled={!isEditing}
                   title={!isEditing ? "Save your bot first to test it" : undefined}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${
-                    rightPanel === "test"
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${rightPanel === "test"
                       ? "text-green-700"
                       : "text-[#aaa] hover:text-[#555]"
-                  }`}
+                    }`}
                   style={rightPanel === "test" ? { backgroundColor: "#f0fdf4", border: "1px solid #bbf7d0" } : {}}
                 >
                   <MessageSquare className="w-3 h-3" />

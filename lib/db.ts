@@ -13,6 +13,14 @@ function createPrismaClient() {
     user: parsed.username,
     password: parsed.password,
     database: parsed.pathname.replace(/^\//, ""),
+    // Keep pool small to avoid exhausting MariaDB's max_connections
+    connectionLimit: 5,
+    // Fail fast instead of waiting 10s — surfaces real errors sooner
+    acquireTimeout: 5000,
+    // How long to wait for the TCP handshake
+    connectTimeout: 5000,
+    // Release idle connections after 30s (prevents stale sockets)
+    idleTimeout: 30000,
   });
 
   return new PrismaClient({ adapter });
@@ -22,8 +30,13 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-export const db = globalForPrisma.prisma ?? createPrismaClient();
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = db;
+function getOrCreateClient(): PrismaClient {
+  if (globalForPrisma.prisma) return globalForPrisma.prisma;
+  const client = createPrismaClient();
+  // Pre-connect so the pool is warm before the first request
+  client.$connect().catch(() => {});
+  globalForPrisma.prisma = client;
+  return client;
 }
+
+export const db = getOrCreateClient();
