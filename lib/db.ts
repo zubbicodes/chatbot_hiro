@@ -39,4 +39,10 @@ function getOrCreateClient(): PrismaClient {
   return client;
 }
 
-export const db = getOrCreateClient();
+// Lazy proxy: module import is safe at build time (no DATABASE_URL needed).
+// The real client is only created on the first property access at request time.
+export const db = new Proxy({} as PrismaClient, {
+  get(_, prop: string | symbol) {
+    return getOrCreateClient()[prop as keyof PrismaClient];
+  },
+});
