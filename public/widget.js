@@ -24,11 +24,12 @@
   }
 
   /* ── State ──────────────────────────────────────────────────────────────── */
-  var config    = null;
-  var isOpen    = false;
-  var isLoading = false;
-  var messages  = [];
-  var shadow    = null;
+  var config           = null;
+  var isOpen           = false;
+  var isLoading        = false;
+  var messages         = [];
+  var shadow           = null;
+  var suggestionsUsed  = false;
 
   /* ── Helpers ────────────────────────────────────────────────────────────── */
   function hex2rgb(hex) {
@@ -156,6 +157,21 @@
       '.hiro-cursor{display:inline-block;width:2px;height:14px;background:#94a3b8;margin-left:2px;vertical-align:middle;animation:hiroBlink 1s infinite;}',
       '@keyframes hiroBlink{0%,100%{opacity:1;}50%{opacity:0;}}',
 
+      /* Suggestions */
+      '#hiro-suggestions{',
+        'display:flex;flex-wrap:wrap;gap:6px;',
+        'padding:10px 12px;border-top:1px solid rgba(255,255,255,0.06);flex-shrink:0;',
+      '}',
+      '#hiro-suggestions.hidden{display:none;}',
+      '.hiro-chip{',
+        'padding:6px 13px;border-radius:999px;',
+        'font-size:12px;font-weight:500;cursor:pointer;border:none;',
+        'background:rgba('+rgb+',0.12);color:'+color+';',
+        'transition:background 0.15s,transform 0.1s;',
+        'white-space:nowrap;',
+      '}',
+      '.hiro-chip:hover{background:rgba('+rgb+',0.22);transform:translateY(-1px);}',
+
       /* Branding */
       '#hiro-brand{',
         'text-align:center;padding:6px;',
@@ -238,6 +254,13 @@
   function sendMessage(text) {
     text = text.trim();
     if (!text || isLoading) return;
+
+    // Hide suggestion chips on first user message
+    if (!suggestionsUsed) {
+      suggestionsUsed = true;
+      var sugg = shadow.getElementById('hiro-suggestions');
+      if (sugg) sugg.classList.add('hidden');
+    }
 
     messages.push({ role: 'user', content: text });
     messages.push({ role: 'assistant', content: '', typing: true });
@@ -333,6 +356,15 @@
     var brandHtml = HIDE_BRANDING ? '' :
       '<div id="hiro-brand">Powered by <a href="https://hirohq.com" target="_blank" rel="noopener">Hiro</a></div>';
 
+    var suggestionsHtml = '';
+    if (cfg.suggestions && cfg.suggestions.length > 0) {
+      var chips = '';
+      for (var si = 0; si < cfg.suggestions.length; si++) {
+        chips += '<button class="hiro-chip" data-suggestion="'+escapeHtml(cfg.suggestions[si])+'">'+escapeHtml(cfg.suggestions[si])+'</button>';
+      }
+      suggestionsHtml = '<div id="hiro-suggestions">' + chips + '</div>';
+    }
+
     var html =
       '<style>' + buildCSS(cfg.primaryColor) + '</style>' +
 
@@ -354,6 +386,7 @@
         '</div>' +
         // Messages
         '<div id="hiro-messages"></div>' +
+        suggestionsHtml +
         brandHtml +
         // Input
         '<div id="hiro-input-bar">' +
@@ -388,6 +421,17 @@
 
     // Render initial greeting
     renderMessages();
+
+    // Bind suggestion chip clicks
+    var suggContainer = shadow.getElementById('hiro-suggestions');
+    if (suggContainer) {
+      suggContainer.addEventListener('click', function (e) {
+        var chip = e.target.closest('.hiro-chip');
+        if (chip && !isLoading) {
+          sendMessage(chip.getAttribute('data-suggestion'));
+        }
+      });
+    }
   }
 
   /* ── Bootstrap ──────────────────────────────────────────────────────────── */

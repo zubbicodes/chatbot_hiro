@@ -9,7 +9,6 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { getConversationMessages } from "@/lib/actions/conversation.actions";
 
 type Conversation = {
@@ -151,7 +150,7 @@ export function ConversationViewer({ conversations }: ConversationViewerProps) {
             )}
           </SheetHeader>
 
-          <ScrollArea className="flex-1 px-4 py-4" style={{ backgroundColor: "#f8f7f4" }}>
+          <div className="flex-1 overflow-y-auto px-4 py-4 min-h-0" style={{ backgroundColor: "#f8f7f4" }}>
             {isPending || !selected ? (
               <div className="flex items-center justify-center py-20">
                 <Loader2 className="w-5 h-5 text-[#bbb] animate-spin" />
@@ -200,7 +199,7 @@ export function ConversationViewer({ conversations }: ConversationViewerProps) {
                 })}
               </div>
             )}
-          </ScrollArea>
+          </div>
         </SheetContent>
       </Sheet>
     </>

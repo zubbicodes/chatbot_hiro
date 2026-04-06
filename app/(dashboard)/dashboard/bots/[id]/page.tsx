@@ -24,6 +24,7 @@ export default async function EditBotPage({ params }: Props) {
           avatarUrl: bot.avatarUrl,
           systemPromptExtra: bot.systemPromptExtra,
           isActive: bot.isActive,
+          suggestions: bot.suggestions ? JSON.parse(bot.suggestions) : [],
         }}
       />
     </div>

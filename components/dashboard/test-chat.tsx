@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Bot, Send, Loader2, RefreshCw, RotateCcw } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Message {
   role: "user" | "assistant";
@@ -17,13 +16,14 @@ interface TestChatProps {
   primaryColor: string;
   greeting: string;
   avatarUrl?: string | null;
+  suggestions?: string[];
 }
 
 function generateSessionId() {
   return crypto.randomUUID();
 }
 
-export function TestChat({ botId, botName, primaryColor, greeting, avatarUrl }: TestChatProps) {
+export function TestChat({ botId, botName, primaryColor, greeting, avatarUrl, suggestions = [] }: TestChatProps) {
   const [sessionId] = useState(generateSessionId);
   const [messages, setMessages] = useState<Message[]>([
     { role: "assistant", content: greeting },
@@ -31,8 +31,10 @@ export function TestChat({ botId, botName, primaryColor, greeting, avatarUrl }: 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [suggestionsVisible, setSuggestionsVisible] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const messagesRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -42,15 +44,16 @@ export function TestChat({ botId, botName, primaryColor, greeting, avatarUrl }: 
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  async function sendMessage(e?: React.FormEvent) {
+  async function sendMessage(text?: string, e?: React.FormEvent) {
     e?.preventDefault();
-    const text = input.trim();
-    if (!text || loading) return;
+    const msg = (text ?? input).trim();
+    if (!msg || loading) return;
 
     setInput("");
     setError(null);
+    setSuggestionsVisible(false);
 
-    setMessages((prev) => [...prev, { role: "user", content: text }]);
+    setMessages((prev) => [...prev, { role: "user", content: msg }]);
     setMessages((prev) => [
       ...prev,
       { role: "assistant", content: "", streaming: true },
@@ -61,7 +64,7 @@ export function TestChat({ botId, botName, primaryColor, greeting, avatarUrl }: 
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ botId, sessionId, message: text }),
+        body: JSON.stringify({ botId, sessionId, message: msg }),
       });
 
       if (!res.ok) {
@@ -112,13 +115,13 @@ export function TestChat({ botId, botName, primaryColor, greeting, avatarUrl }: 
     setMessages([{ role: "assistant", content: greeting }]);
     setError(null);
     setInput("");
+    setSuggestionsVisible(true);
   }
 
+  const userHasChatted = messages.some((m) => m.role === "user");
+
   return (
-    <div
-      className="flex flex-col h-full overflow-hidden"
-      style={{ backgroundColor: "#fff" }}
-    >
+    <div className="flex flex-col h-full overflow-hidden" style={{ backgroundColor: "#fff" }}>
       {/* Header */}
       <div
         className="flex items-center gap-3 px-4 py-3.5 flex-shrink-0"
@@ -149,17 +152,18 @@ export function TestChat({ botId, botName, primaryColor, greeting, avatarUrl }: 
         </button>
       </div>
 
-      {/* Messages */}
-      <ScrollArea className="flex-1 px-4 py-4" style={{ backgroundColor: "#f8f7f4" }}>
+      {/* Messages — scrollable area */}
+      <div
+        ref={messagesRef}
+        className="flex-1 overflow-y-auto px-4 py-4 min-h-0"
+        style={{ backgroundColor: "#f8f7f4" }}
+      >
         <div className="space-y-4">
           {messages.map((msg, i) => (
             <div
               key={i}
-              className={`flex items-end gap-2.5 ${
-                msg.role === "user" ? "flex-row-reverse" : "flex-row"
-              }`}
+              className={`flex items-end gap-2.5 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}
             >
-              {/* Avatar */}
               {msg.role === "assistant" && (
                 <div
                   className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden"
@@ -174,7 +178,6 @@ export function TestChat({ botId, botName, primaryColor, greeting, avatarUrl }: 
                 </div>
               )}
 
-              {/* Bubble */}
               <div
                 className={`max-w-[75%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
                   msg.role === "user" ? "text-white rounded-br-sm" : "rounded-bl-sm"
@@ -201,7 +204,6 @@ export function TestChat({ botId, botName, primaryColor, greeting, avatarUrl }: 
             </div>
           ))}
 
-          {/* Error */}
           {error && (
             <div
               className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs"
@@ -214,11 +216,42 @@ export function TestChat({ botId, botName, primaryColor, greeting, avatarUrl }: 
 
           <div ref={bottomRef} />
         </div>
-      </ScrollArea>
+      </div>
+
+      {/* Suggestion chips — shown before first user message */}
+      {suggestions.length > 0 && suggestionsVisible && !userHasChatted && (
+        <div
+          className="flex flex-wrap gap-2 px-4 py-3 flex-shrink-0 border-t"
+          style={{ backgroundColor: "#fafaf9", borderColor: "#eeebe6" }}
+        >
+          {suggestions.map((s, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => sendMessage(s)}
+              disabled={loading}
+              className="px-3 py-1.5 rounded-full text-xs font-medium border transition-all cursor-pointer hover:shadow-sm disabled:opacity-50"
+              style={{
+                backgroundColor: "#fff",
+                borderColor: primaryColor + "40",
+                color: primaryColor,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = primaryColor + "10";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "#fff";
+              }}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Input */}
       <form
-        onSubmit={sendMessage}
+        onSubmit={(e) => sendMessage(undefined, e)}
         className="flex items-center gap-2 px-4 py-3 border-t flex-shrink-0"
         style={{ borderColor: "#eeebe6", backgroundColor: "#fff" }}
       >

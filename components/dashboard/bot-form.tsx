@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState, useState, useCallback, useEffect } from "react";
+import { useActionState, useState, useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
-import { ArrowLeft, Bot, Check, Eye, Loader2, MessageSquare, Sparkles, X } from "lucide-react";
+import { ArrowLeft, Bot, Check, Eye, Loader2, MessageSquare, Plus, Sparkles, X } from "lucide-react";
 import { TestChat } from "@/components/dashboard/test-chat";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +19,7 @@ interface BotData {
   avatarUrl: string | null;
   systemPromptExtra: string | null;
   isActive: boolean;
+  suggestions: string[];
 }
 
 interface BotFormProps {
@@ -219,6 +220,22 @@ export function BotForm({ bot }: BotFormProps) {
     isActive: bot?.isActive ?? true,
   });
 
+  const [suggestions, setSuggestions] = useState<string[]>(bot?.suggestions ?? []);
+  const [suggestionInput, setSuggestionInput] = useState("");
+  const suggestionInputRef = useRef<HTMLInputElement>(null);
+
+  function addSuggestion() {
+    const val = suggestionInput.trim();
+    if (!val || suggestions.length >= 6 || suggestions.includes(val)) return;
+    setSuggestions((prev) => [...prev, val]);
+    setSuggestionInput("");
+    suggestionInputRef.current?.focus();
+  }
+
+  function removeSuggestion(i: number) {
+    setSuggestions((prev) => prev.filter((_, idx) => idx !== i));
+  }
+
   const update = useCallback(
     (field: keyof typeof preview, value: string | boolean) =>
       setPreview((prev) => ({ ...prev, [field]: value })),
@@ -307,6 +324,11 @@ export function BotForm({ bot }: BotFormProps) {
             type="hidden"
             name="isActive"
             value={preview.isActive ? "true" : "false"}
+          />
+          <input
+            type="hidden"
+            name="suggestions"
+            value={JSON.stringify(suggestions)}
           />
 
           {/* Section: Identity */}
@@ -514,6 +536,89 @@ export function BotForm({ bot }: BotFormProps) {
               )}
             </div>
           </section>
+
+          {/* Section: Quick Suggestions */}
+          <section
+            className="rounded-2xl border p-5 space-y-4"
+            style={{ backgroundColor: "#fff", borderColor: "#eeebe6" }}
+          >
+            <div>
+              <h2 className="text-sm font-bold text-[#111] flex items-center gap-2">
+                <span
+                  className="w-6 h-6 rounded-lg flex items-center justify-center"
+                  style={{ backgroundColor: "#eff6ff" }}
+                >
+                  <MessageSquare className="w-3.5 h-3.5 text-blue-500" />
+                </span>
+                Quick suggestions
+              </h2>
+              <p className="text-xs text-[#aaa] mt-1 ml-8">
+                Clickable prompts shown to users before they type. Max 6.
+              </p>
+            </div>
+
+            {/* Chips */}
+            {suggestions.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {suggestions.map((s, i) => (
+                  <span
+                    key={i}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border"
+                    style={{
+                      backgroundColor: preview.primaryColor + "10",
+                      borderColor: preview.primaryColor + "40",
+                      color: preview.primaryColor,
+                    }}
+                  >
+                    {s}
+                    <button
+                      type="button"
+                      onClick={() => removeSuggestion(i)}
+                      className="flex-shrink-0 hover:opacity-70 transition-opacity cursor-pointer"
+                      aria-label="Remove suggestion"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Add input */}
+            {suggestions.length < 6 && (
+              <div className="flex items-center gap-2">
+                <input
+                  ref={suggestionInputRef}
+                  type="text"
+                  value={suggestionInput}
+                  onChange={(e) => setSuggestionInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addSuggestion();
+                    }
+                  }}
+                  placeholder={suggestions.length === 0 ? 'e.g. "What are your hours?"' : "Add another…"}
+                  maxLength={100}
+                  className="flex-1 h-10 rounded-xl border px-3 text-sm text-[#111] placeholder:text-[#ccc] outline-none focus:ring-1 focus:ring-green-500 focus:border-green-400 transition-all"
+                  style={{ borderColor: "#e5e5e5" }}
+                />
+                <button
+                  type="button"
+                  onClick={addSuggestion}
+                  disabled={!suggestionInput.trim()}
+                  className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 border transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#f5f5f5]"
+                  style={{ borderColor: "#e5e5e5" }}
+                >
+                  <Plus className="w-4 h-4 text-[#555]" />
+                </button>
+              </div>
+            )}
+
+            {suggestions.length >= 6 && (
+              <p className="text-xs text-[#aaa]">Maximum 6 suggestions reached.</p>
+            )}
+          </section>
         </form>
 
         {/* RIGHT — Preview / Test panel */}
@@ -583,6 +688,7 @@ export function BotForm({ bot }: BotFormProps) {
                   primaryColor={preview.primaryColor}
                   greeting={preview.greeting || bot.greeting}
                   avatarUrl={preview.avatarUrl || bot.avatarUrl}
+                  suggestions={suggestions}
                 />
               ) : null}
             </div>

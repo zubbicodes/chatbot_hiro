@@ -28,6 +28,11 @@ export const BotSchema = z.object({
     .optional()
     .or(z.literal("")),
   isActive: z.boolean().default(true),
+  suggestions: z
+    .array(z.string().max(100, "Each suggestion must be 100 chars or less"))
+    .max(6, "Maximum 6 suggestions")
+    .optional()
+    .default([]),
 });
 
 export type BotInput = z.infer<typeof BotSchema>;

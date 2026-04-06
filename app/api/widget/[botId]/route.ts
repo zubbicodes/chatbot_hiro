@@ -25,6 +25,7 @@ export async function GET(
       primaryColor: true,
       greeting: true,
       avatarUrl: true,
+      suggestions: true,
     },
   });
 
@@ -32,7 +33,12 @@ export async function GET(
     return Response.json({ error: "Bot not found" }, { status: 404, headers: CORS });
   }
 
-  return Response.json(bot, {
+  const parsed = {
+    ...bot,
+    suggestions: bot.suggestions ? JSON.parse(bot.suggestions) : [],
+  };
+
+  return Response.json(parsed, {
     headers: {
       ...CORS,
       "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",

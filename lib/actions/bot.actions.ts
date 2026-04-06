@@ -19,6 +19,11 @@ export async function createBot(
   const session = await auth();
   if (!session?.user?.id) return { message: "Unauthorized" };
 
+  const rawSuggestions = formData.get("suggestions") as string;
+  const suggestions = rawSuggestions
+    ? JSON.parse(rawSuggestions).filter(Boolean)
+    : [];
+
   const parsed = BotSchema.safeParse({
     name: formData.get("name"),
     primaryColor: formData.get("primaryColor") || "#6366f1",
@@ -28,19 +33,21 @@ export async function createBot(
     avatarUrl: formData.get("avatarUrl") || "",
     systemPromptExtra: formData.get("systemPromptExtra") || "",
     isActive: formData.get("isActive") === "true",
+    suggestions,
   });
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
-  const { avatarUrl, systemPromptExtra, ...rest } = parsed.data;
+  const { avatarUrl, systemPromptExtra, suggestions: parsedSuggestions, ...rest } = parsed.data;
 
   const bot = await db.bot.create({
     data: {
       ...rest,
       avatarUrl: avatarUrl || null,
       systemPromptExtra: systemPromptExtra || null,
+      suggestions: parsedSuggestions?.length ? JSON.stringify(parsedSuggestions) : null,
       userId: session.user.id,
     },
   });
@@ -62,6 +69,11 @@ export async function updateBot(
   });
   if (!bot) return { message: "Bot not found" };
 
+  const rawSuggestions = formData.get("suggestions") as string;
+  const suggestions = rawSuggestions
+    ? JSON.parse(rawSuggestions).filter(Boolean)
+    : [];
+
   const parsed = BotSchema.safeParse({
     name: formData.get("name"),
     primaryColor: formData.get("primaryColor") || "#6366f1",
@@ -71,13 +83,14 @@ export async function updateBot(
     avatarUrl: formData.get("avatarUrl") || "",
     systemPromptExtra: formData.get("systemPromptExtra") || "",
     isActive: formData.get("isActive") === "true",
+    suggestions,
   });
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
-  const { avatarUrl, systemPromptExtra, ...rest } = parsed.data;
+  const { avatarUrl, systemPromptExtra, suggestions: parsedSuggestions, ...rest } = parsed.data;
 
   await db.bot.update({
     where: { id: botId },
@@ -85,6 +98,7 @@ export async function updateBot(
       ...rest,
       avatarUrl: avatarUrl || null,
       systemPromptExtra: systemPromptExtra || null,
+      suggestions: parsedSuggestions?.length ? JSON.stringify(parsedSuggestions) : null,
     },
   });
 
