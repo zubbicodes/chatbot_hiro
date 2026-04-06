@@ -95,12 +95,8 @@ function ChatWidgetPreview({
           style={{ backgroundColor: primaryColor }}
         >
           <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
-            {avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatarUrl} alt="Bot avatar" className="w-full h-full object-cover" />
-            ) : (
-              <Bot className="w-3.5 h-3.5 text-white" />
-            )}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={avatarUrl || "/hiro_logo.png"} alt="Bot avatar" className="w-full h-full object-cover" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-white text-xs font-semibold truncate">{name || "My Bot"}</p>

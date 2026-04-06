@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Bot, Send, Loader2, RefreshCw, RotateCcw } from "lucide-react";
+import { Send, Loader2, RefreshCw, RotateCcw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 interface Message {
@@ -128,12 +128,8 @@ export function TestChat({ botId, botName, primaryColor, greeting, avatarUrl, su
         style={{ backgroundColor: primaryColor }}
       >
         <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
-          {avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatarUrl} alt={botName} className="w-full h-full object-cover" />
-          ) : (
-            <Bot className="w-4 h-4 text-white" />
-          )}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={avatarUrl || "/hiro_logo.png"} alt={botName} className="w-full h-full object-cover" />
         </div>
         <div className="flex-1">
           <p className="text-white font-semibold text-sm">{botName}</p>
@@ -169,12 +165,8 @@ export function TestChat({ botId, botName, primaryColor, greeting, avatarUrl, su
                   className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden"
                   style={{ backgroundColor: primaryColor }}
                 >
-                  {avatarUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <Bot className="w-3.5 h-3.5 text-white" />
-                  )}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={avatarUrl || "/hiro_logo.png"} alt="" className="w-full h-full object-cover" />
                 </div>
               )}
 
