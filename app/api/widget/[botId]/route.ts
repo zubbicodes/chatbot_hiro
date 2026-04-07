@@ -26,6 +26,11 @@ export async function GET(
       greeting: true,
       avatarUrl: true,
       suggestions: true,
+      leadEnabled: true,
+      leadFields: true,
+      leadTrigger: true,
+      bookingEnabled: true,
+      bookingUrl: true,
     },
   });
 
@@ -36,6 +41,7 @@ export async function GET(
   const parsed = {
     ...bot,
     suggestions: bot.suggestions ? JSON.parse(bot.suggestions) : [],
+    leadFields: bot.leadEnabled && bot.leadFields ? JSON.parse(bot.leadFields) : [],
   };
 
   return Response.json(parsed, {

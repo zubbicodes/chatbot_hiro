@@ -11,6 +11,7 @@ import {
   Code2,
   LogOut,
   MessageSquare,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,11 @@ const navItems = [
     label: "Conversations",
     href: "/dashboard/conversations",
     icon: MessageSquare,
+  },
+  {
+    label: "Leads",
+    href: "/dashboard/leads",
+    icon: Users,
   },
   {
     label: "Analytics",

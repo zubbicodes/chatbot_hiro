@@ -76,12 +76,20 @@ model Bot {
   systemPromptExtra String?         @db.LongText
   isActive          Boolean         @default(true)
   suggestions       String?         @db.Text
+  // Lead collection
+  leadEnabled       Boolean         @default(false)
+  leadFields        String?         @db.Text   // JSON: [{key,label,type,required}]
+  leadTrigger       String          @default("after_first_reply") // "immediately" | "after_first_reply"
+  // Meeting booking
+  bookingEnabled    Boolean         @default(false)
+  bookingUrl        String?         @db.Text   // Cal.com link
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
   user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   conversations     Conversation[]
   knowledgeBases    KnowledgeBase[]
   usageLogs         UsageLog[]
+  leads             Lead[]
 
   @@index([userId])
   @@map("bots")
@@ -110,6 +118,7 @@ model Conversation {
   updatedAt DateTime  @updatedAt
   bot       Bot       @relation(fields: [botId], references: [id], onDelete: Cascade)
   messages  Message[]
+  leads     Lead[]
 
   @@index([botId])
   @@index([sessionId])
@@ -143,6 +152,19 @@ model UsageLog {
   @@index([botId])
   @@index([date])
   @@map("usage_logs")
+}
+
+model Lead {
+  id             String        @id @default(cuid())
+  botId          String
+  conversationId String?
+  fieldsData     String        @db.Text  // JSON: {key: value}
+  createdAt      DateTime      @default(now())
+  bot            Bot           @relation(fields: [botId], references: [id], onDelete: Cascade)
+  conversation   Conversation? @relation(fields: [conversationId], references: [id])
+
+  @@index([botId])
+  @@map("leads")
 }
 
 enum Role {

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { LeadFieldSchema } from "./lead";
 
 export const BotSchema = z.object({
   name: z
@@ -33,6 +34,11 @@ export const BotSchema = z.object({
     .max(6, "Maximum 6 suggestions")
     .optional()
     .default([]),
+  leadEnabled: z.boolean().default(false),
+  leadTrigger: z.enum(["immediately", "after_first_reply"]).default("after_first_reply"),
+  leadFields: z.array(LeadFieldSchema).max(8).optional().default([]),
+  bookingEnabled: z.boolean().default(false),
+  bookingUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
 });
 
 export type BotInput = z.infer<typeof BotSchema>;

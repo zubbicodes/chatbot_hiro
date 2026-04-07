@@ -24,6 +24,9 @@ export async function createBot(
     ? JSON.parse(rawSuggestions).filter(Boolean)
     : [];
 
+  const rawLeadFields = formData.get("leadFields") as string;
+  const leadFields = rawLeadFields ? JSON.parse(rawLeadFields) : [];
+
   const parsed = BotSchema.safeParse({
     name: formData.get("name"),
     primaryColor: formData.get("primaryColor") || "#6366f1",
@@ -34,13 +37,24 @@ export async function createBot(
     systemPromptExtra: formData.get("systemPromptExtra") || "",
     isActive: formData.get("isActive") === "true",
     suggestions,
+    leadEnabled: formData.get("leadEnabled") === "true",
+    leadTrigger: formData.get("leadTrigger") || "after_first_reply",
+    leadFields,
+    bookingEnabled: formData.get("bookingEnabled") === "true",
+    bookingUrl: formData.get("bookingUrl") || "",
   });
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
-  const { avatarUrl, systemPromptExtra, suggestions: parsedSuggestions, ...rest } = parsed.data;
+  const {
+    avatarUrl, systemPromptExtra,
+    suggestions: parsedSuggestions,
+    leadFields: parsedLeadFields,
+    bookingUrl,
+    ...rest
+  } = parsed.data;
 
   const bot = await db.bot.create({
     data: {
@@ -48,6 +62,8 @@ export async function createBot(
       avatarUrl: avatarUrl || null,
       systemPromptExtra: systemPromptExtra || null,
       suggestions: parsedSuggestions?.length ? JSON.stringify(parsedSuggestions) : null,
+      leadFields: parsedLeadFields?.length ? JSON.stringify(parsedLeadFields) : null,
+      bookingUrl: bookingUrl || null,
       userId: session.user.id,
     },
   });
@@ -74,6 +90,9 @@ export async function updateBot(
     ? JSON.parse(rawSuggestions).filter(Boolean)
     : [];
 
+  const rawLeadFields = formData.get("leadFields") as string;
+  const leadFields = rawLeadFields ? JSON.parse(rawLeadFields) : [];
+
   const parsed = BotSchema.safeParse({
     name: formData.get("name"),
     primaryColor: formData.get("primaryColor") || "#6366f1",
@@ -84,13 +103,24 @@ export async function updateBot(
     systemPromptExtra: formData.get("systemPromptExtra") || "",
     isActive: formData.get("isActive") === "true",
     suggestions,
+    leadEnabled: formData.get("leadEnabled") === "true",
+    leadTrigger: formData.get("leadTrigger") || "after_first_reply",
+    leadFields,
+    bookingEnabled: formData.get("bookingEnabled") === "true",
+    bookingUrl: formData.get("bookingUrl") || "",
   });
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
-  const { avatarUrl, systemPromptExtra, suggestions: parsedSuggestions, ...rest } = parsed.data;
+  const {
+    avatarUrl, systemPromptExtra,
+    suggestions: parsedSuggestions,
+    leadFields: parsedLeadFields,
+    bookingUrl,
+    ...rest
+  } = parsed.data;
 
   await db.bot.update({
     where: { id: botId },
@@ -99,6 +129,8 @@ export async function updateBot(
       avatarUrl: avatarUrl || null,
       systemPromptExtra: systemPromptExtra || null,
       suggestions: parsedSuggestions?.length ? JSON.stringify(parsedSuggestions) : null,
+      leadFields: parsedLeadFields?.length ? JSON.stringify(parsedLeadFields) : null,
+      bookingUrl: bookingUrl || null,
     },
   });
 

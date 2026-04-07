@@ -24,12 +24,155 @@
   }
 
   /* ── State ──────────────────────────────────────────────────────────────── */
-  var config           = null;
-  var isOpen           = false;
-  var isLoading        = false;
-  var messages         = [];
-  var shadow           = null;
-  var suggestionsUsed  = false;
+  var config            = null;
+  var isOpen            = false;
+  var isLoading         = false;
+  var messages          = [];
+  var shadow            = null;
+  var suggestionsUsed   = false;
+  var conversationId    = null;  // captured from X-Conversation-Id header
+  var userMessageCount  = 0;
+  var leadSubmitted     = false;
+  var leadFormShown     = false;
+  var pendingBooking    = false;
+
+  /* ── Typing animation state ─────────────────────────────────────────────── */
+  var typingInterval   = null;
+  var typingBuffer     = '';
+  var typingStreamDone = false;
+  var TYPING_MS        = 18;
+
+  function stopTyping() {
+    if (typingInterval !== null) {
+      clearInterval(typingInterval);
+      typingInterval = null;
+    }
+  }
+
+  function flushAndStop(lastMsg) {
+    stopTyping();
+    if (!lastMsg) return;
+    if (typingBuffer.length > 0) {
+      lastMsg.content += typingBuffer;
+      typingBuffer = '';
+    }
+    lastMsg.streaming = false;
+    renderMessages();
+  }
+
+  function startTyping(lastMsg) {
+    stopTyping();
+    typingInterval = setInterval(function () {
+      if (typingBuffer.length > 0) {
+        lastMsg.content += typingBuffer[0];
+        typingBuffer = typingBuffer.slice(1);
+        renderMessages();
+      } else if (typingStreamDone) {
+        stopTyping();
+        lastMsg.streaming = false;
+        isLoading = false;
+
+        // BOOK_MEETING signal detection
+        var isBM = config.bookingEnabled && config.bookingUrl && lastMsg.content.trim() === 'BOOK_MEETING';
+        var needLeadFirst = isBM && config.leadEnabled && !leadSubmitted && !leadFormShown
+            && config.leadFields && config.leadFields.length > 0;
+
+        if (needLeadFirst) {
+          // Collect lead info first, show booking after submission
+          pendingBooking = true;
+          lastMsg.content = 'Before I pull up the booking calendar, let me grab a few details.';
+          messages.push({ role: 'assistant', type: 'lead_form', content: '' });
+          leadFormShown = true;
+        } else if (isBM) {
+          lastMsg.type = 'booking';
+          lastMsg.content = '';
+        } else if (config.leadEnabled && !leadSubmitted && !leadFormShown
+            && config.leadTrigger === 'after_first_reply'
+            && config.leadFields && config.leadFields.length > 0
+            && userMessageCount === 1) {
+          showLeadForm();
+        }
+
+        renderMessages();
+
+        var inp = shadow && shadow.getElementById('hiro-input');
+        var btn = shadow && shadow.getElementById('hiro-send');
+        if (inp) { inp.disabled = false; inp.focus(); }
+        if (btn) btn.disabled = !((inp && inp.value.trim()));
+      }
+    }, TYPING_MS);
+  }
+
+  /* ── Lead form helpers ───────────────────────────────────────────────────── */
+  function showLeadForm() {
+    if (leadFormShown || leadSubmitted) return;
+    leadFormShown = true;
+    messages.push({ role: 'assistant', type: 'lead_form', content: '' });
+    renderMessages();
+  }
+
+  function buildLeadFormHtml(fields) {
+    var html = '<form id="hiro-lead-form" style="display:flex;flex-direction:column;gap:10px;">';
+    html += '<p style="font-size:13px;font-weight:600;color:#111;margin:0;">Mind sharing a few details?</p>';
+    for (var i = 0; i < fields.length; i++) {
+      var f = fields[i];
+      html += '<div style="display:flex;flex-direction:column;gap:4px;">' +
+        '<label style="font-size:11px;font-weight:600;color:#555;">' +
+          escapeHtml(f.label) + (f.required ? ' <span style="color:#ef4444;">*</span>' : '') +
+        '</label>' +
+        '<input type="' + escapeHtml(f.type) + '" data-key="' + escapeHtml(f.key) + '"' +
+          ' data-required="' + (f.required ? 'true' : 'false') + '"' +
+          ' placeholder="' + escapeHtml(f.label) + '"' +
+          ' style="height:36px;border-radius:10px;border:1px solid #e5e5e5;padding:0 12px;font-size:13px;color:#111;outline:none;background:#fff;width:100%;box-sizing:border-box;" />' +
+        '<span class="hiro-field-err" data-for="' + escapeHtml(f.key) + '" style="font-size:11px;color:#ef4444;display:none;"></span>' +
+        '</div>';
+    }
+    html += '<button type="submit" style="height:36px;border-radius:10px;background:' + escapeHtml(config.primaryColor) + ';color:#fff;font-size:13px;font-weight:600;border:none;cursor:pointer;width:100%;">Submit</button>';
+    html += '</form>';
+    return html;
+  }
+
+  function submitLeadForm(form) {
+    var fields = config.leadFields || [];
+    var data = {};
+    var valid = true;
+    for (var i = 0; i < fields.length; i++) {
+      var f = fields[i];
+      var inp = form.querySelector('[data-key="' + f.key + '"]');
+      var errEl = form.querySelector('[data-for="' + f.key + '"]');
+      var val = inp ? inp.value.trim() : '';
+      if (f.required && !val) {
+        valid = false;
+        if (errEl) { errEl.textContent = f.label + ' is required'; errEl.style.display = 'block'; }
+      } else {
+        if (errEl) errEl.style.display = 'none';
+        data[f.key] = val;
+      }
+    }
+    if (!valid) return;
+
+    fetch(HOST + '/api/leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ botId: BOT_ID, conversationId: conversationId || undefined, fieldsData: data }),
+    }).catch(function () {/* best-effort */});
+
+    leadSubmitted = true;
+    // Replace lead_form message with thank-you
+    for (var j = 0; j < messages.length; j++) {
+      if (messages[j].type === 'lead_form') {
+        messages[j].type = 'lead_submitted';
+        messages[j].content = 'Thanks! We\'ll be in touch soon.';
+        break;
+      }
+    }
+    // If booking was pending behind the lead form, show it now
+    if (pendingBooking) {
+      pendingBooking = false;
+      messages.push({ role: 'assistant', type: 'booking', content: '' });
+    }
+    renderMessages();
+  }
 
   /* ── Helpers ────────────────────────────────────────────────────────────── */
   function hex2rgb(hex) {
@@ -201,6 +344,33 @@
       '}',
       '#hiro-send:hover:not(:disabled){transform:scale(1.08);}',
       '#hiro-send:disabled{opacity:0.45;cursor:not-allowed;}',
+
+      /* Card (booking + lead form) */
+      '.hiro-card{',
+        'background:#1e293b;border-radius:14px;overflow:hidden;',
+        'max-width:calc(100% - 34px);width:100%;border:1px solid rgba(255,255,255,0.08);',
+      '}',
+      '.hiro-card-header{',
+        'padding:10px 14px;font-size:13px;font-weight:600;color:#e2e8f0;',
+        'border-bottom:1px solid rgba(255,255,255,0.08);',
+      '}',
+      '.hiro-cal-frame{display:block;width:100%;height:520px;border:none;background:#fff;}',
+      '.hiro-card form{padding:14px;display:flex;flex-direction:column;gap:10px;}',
+      '.hiro-card input{',
+        'height:36px;border-radius:10px;border:1px solid rgba(255,255,255,0.12);',
+        'padding:0 12px;font-size:13px;color:#e2e8f0;background:#0f172a;',
+        'outline:none;width:100%;',
+      '}',
+      '.hiro-card input::placeholder{color:#475569;}',
+      '.hiro-card input:focus{border-color:rgba('+rgb+',0.5);}',
+      '.hiro-card label{font-size:11px;font-weight:600;color:#94a3b8;display:block;margin-bottom:3px;}',
+      '.hiro-card button[type=submit]{',
+        'height:36px;border-radius:10px;background:'+color+';',
+        'color:#fff;font-size:13px;font-weight:600;border:none;cursor:pointer;width:100%;',
+        'transition:opacity 0.15s;',
+      '}',
+      '.hiro-card button[type=submit]:hover{opacity:0.88;}',
+      '.hiro-field-err{font-size:11px;color:#f87171;display:none;}',
     ].join('');
   }
 
@@ -220,17 +390,45 @@
     for (var i = 0; i < messages.length; i++) {
       var m = messages[i];
       var isBot = m.role === 'assistant';
-      var rowClass = isBot ? 'hiro-row bot' : 'hiro-row user';
-
       var avatarHtml = '';
       if (isBot) {
         avatarHtml = '<div class="hiro-msg-avatar">' +
-          (config.avatarUrl
-            ? '<img src="'+escapeHtml(config.avatarUrl)+'" alt="" />'
-            : SVG_BOT) +
+          (config.avatarUrl ? '<img src="'+escapeHtml(config.avatarUrl)+'" alt="" />' : SVG_BOT) +
           '</div>';
       }
 
+      // Booking card
+      if (m.type === 'booking') {
+        html += '<div class="hiro-row bot">' + avatarHtml +
+          '<div class="hiro-card">' +
+            '<div class="hiro-card-header">📅 Book a meeting</div>' +
+            '<iframe src="'+escapeHtml(config.bookingUrl)+'" class="hiro-cal-frame" loading="lazy" allow="payment" title="Book a meeting"></iframe>' +
+            '<div style="padding:10px 14px;">' +
+              '<button class="hiro-booking-done" data-idx="'+i+'" style="width:100%;height:36px;border-radius:10px;background:'+escapeHtml(config.primaryColor)+';color:#fff;font-size:13px;font-weight:600;border:none;cursor:pointer;transition:opacity 0.15s;">✓ Done — I\'ve booked my meeting</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+        continue;
+      }
+
+      // Lead form
+      if (m.type === 'lead_form') {
+        html += '<div class="hiro-row bot">' + avatarHtml +
+          '<div class="hiro-card">' + buildLeadFormHtml(config.leadFields || []) + '</div>' +
+        '</div>';
+        continue;
+      }
+
+      // Lead submitted thank-you
+      if (m.type === 'lead_submitted') {
+        html += '<div class="hiro-row bot">' + avatarHtml +
+          '<div class="hiro-bubble-msg" style="background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;">✓ ' + escapeHtml(m.content) + '</div>' +
+        '</div>';
+        continue;
+      }
+
+      // Standard message
+      var rowClass = isBot ? 'hiro-row bot' : 'hiro-row user';
       var bubbleContent = '';
       if (m.typing) {
         bubbleContent = '<div class="hiro-typing"><span class="hiro-dot-anim"></span><span class="hiro-dot-anim"></span><span class="hiro-dot-anim"></span></div>';
@@ -239,11 +437,10 @@
         bubbleContent = text;
         if (m.streaming) bubbleContent += '<span class="hiro-cursor"></span>';
       }
-
       html += '<div class="'+rowClass+'">' +
         avatarHtml +
         '<div class="hiro-bubble-msg">'+bubbleContent+'</div>' +
-        '</div>';
+      '</div>';
     }
 
     container.innerHTML = html;
@@ -254,6 +451,14 @@
   function sendMessage(text) {
     text = text.trim();
     if (!text || isLoading) return;
+
+    // Flush any ongoing typing animation from the previous reply
+    var prevLast = messages[messages.length - 1];
+    if (prevLast && prevLast.streaming) {
+      flushAndStop(prevLast);
+    } else {
+      stopTyping();
+    }
 
     // Hide suggestion chips on first user message
     if (!suggestionsUsed) {
@@ -272,6 +477,8 @@
     if (input)   { input.value = ''; input.disabled = true; }
     if (sendBtn) sendBtn.disabled = true;
 
+    userMessageCount++;
+
     fetch(HOST + '/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -284,10 +491,17 @@
         });
       }
 
-      // Switch typing → streaming
+      // Capture conversationId
+      var cid = res.headers.get('X-Conversation-Id');
+      if (cid && !conversationId) conversationId = cid;
+
+      // Switch typing indicator → streaming state + start animation
       var last = messages[messages.length - 1];
       last.typing = false;
       last.streaming = true;
+      typingBuffer = '';
+      typingStreamDone = false;
+      startTyping(last);
       renderMessages();
 
       var reader = res.body.getReader();
@@ -296,16 +510,12 @@
       function pump() {
         return reader.read().then(function (result) {
           if (result.done) {
-            last.streaming = false;
-            isLoading = false;
-            renderMessages();
-            if (input)   { input.disabled = false; input.focus(); }
-            if (sendBtn) sendBtn.disabled = false;
+            // Signal the animation — no more chunks
+            typingStreamDone = true;
             return;
           }
-          var chunk = decoder.decode(result.value, { stream: true });
-          last.content += chunk;
-          renderMessages();
+          // Push chunk into buffer; animation reveals it at typing speed
+          typingBuffer += decoder.decode(result.value, { stream: true });
           return pump();
         });
       }
@@ -313,6 +523,8 @@
       return pump();
     })
     .catch(function (err) {
+      stopTyping();
+      typingBuffer = '';
       var last = messages[messages.length - 1];
       last.typing = false;
       last.streaming = false;
@@ -419,7 +631,13 @@
       sendMessage(input.value);
     });
 
-    // Render initial greeting
+    // Show lead form immediately if configured
+    if (cfg.leadEnabled && cfg.leadTrigger === 'immediately'
+        && cfg.leadFields && cfg.leadFields.length > 0) {
+      showLeadForm();
+    }
+
+    // Render initial greeting (+ lead form if immediately)
     renderMessages();
 
     // Bind suggestion chip clicks
@@ -432,6 +650,25 @@
         }
       });
     }
+
+    // Delegated submit handler for lead form (survives innerHTML re-renders)
+    shadow.addEventListener('submit', function (e) {
+      var form = e.target && e.target.id === 'hiro-lead-form' ? e.target : null;
+      if (!form) return;
+      e.preventDefault();
+      submitLeadForm(form);
+    });
+
+    // Delegated click handler for booking "Done" button
+    shadow.addEventListener('click', function (e) {
+      var btn = e.target && e.target.classList && e.target.classList.contains('hiro-booking-done') ? e.target : null;
+      if (!btn) return;
+      var idx = parseInt(btn.getAttribute('data-idx'), 10);
+      if (!isNaN(idx) && messages[idx]) {
+        messages[idx] = { role: 'assistant', content: 'Your meeting has been booked! You\'ll receive a confirmation shortly. Is there anything else I can help you with?', type: 'text' };
+        renderMessages();
+      }
+    });
   }
 
   /* ── Bootstrap ──────────────────────────────────────────────────────────── */

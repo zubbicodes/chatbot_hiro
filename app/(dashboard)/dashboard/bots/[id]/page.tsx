@@ -25,6 +25,11 @@ export default async function EditBotPage({ params }: Props) {
           systemPromptExtra: bot.systemPromptExtra,
           isActive: bot.isActive,
           suggestions: bot.suggestions ? JSON.parse(bot.suggestions) : [],
+          leadEnabled: bot.leadEnabled,
+          leadTrigger: (bot.leadTrigger as "immediately" | "after_first_reply") ?? "after_first_reply",
+          leadFields: bot.leadFields ? JSON.parse(bot.leadFields) : [],
+          bookingEnabled: bot.bookingEnabled,
+          bookingUrl: bot.bookingUrl,
         }}
       />
     </div>
