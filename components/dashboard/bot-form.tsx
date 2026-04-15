@@ -197,11 +197,10 @@ export function BotForm({ bot }: BotFormProps) {
           <input type="hidden" name="bookingUrl" value={bookingUrl} />
 
           {/* ── TAB 1: Identity & Look ────────────────────────────────────── */}
-          {activeTab === "identity" && (
-            <div
-              className="rounded-b-2xl rounded-tr-2xl border p-6 space-y-5"
-              style={{ backgroundColor: "#fff", borderColor: "#eeebe6" }}
-            >
+          <div
+            className={`rounded-b-2xl rounded-tr-2xl border p-6 space-y-5 ${activeTab === "identity" ? "block" : "hidden"}`}
+            style={{ backgroundColor: "#fff", borderColor: "#eeebe6" }}
+          >
               {/* Bot name + status in a row */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
@@ -301,14 +300,12 @@ export function BotForm({ bot }: BotFormProps) {
                 />
               </div>
             </div>
-          )}
 
           {/* ── TAB 2: Behavior ──────────────────────────────────────────── */}
-          {activeTab === "behavior" && (
-            <div
-              className="rounded-b-2xl rounded-tr-2xl border p-6 space-y-5"
-              style={{ backgroundColor: "#fff", borderColor: "#eeebe6" }}
-            >
+          <div
+            className={`rounded-b-2xl rounded-tr-2xl border p-6 space-y-5 ${activeTab === "behavior" ? "block" : "hidden"}`}
+            style={{ backgroundColor: "#fff", borderColor: "#eeebe6" }}
+          >
               {/* Greeting */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-[#555]">
@@ -408,14 +405,12 @@ export function BotForm({ bot }: BotFormProps) {
                 )}
               </div>
             </div>
-          )}
 
           {/* ── TAB 3: Features ──────────────────────────────────────────── */}
-          {activeTab === "features" && (
-            <div
-              className="rounded-b-2xl rounded-tr-2xl border p-6 space-y-5"
-              style={{ backgroundColor: "#fff", borderColor: "#eeebe6" }}
-            >
+          <div
+            className={`rounded-b-2xl rounded-tr-2xl border p-6 space-y-5 ${activeTab === "features" ? "block" : "hidden"}`}
+            style={{ backgroundColor: "#fff", borderColor: "#eeebe6" }}
+          >
               {/* Lead collection — rendered inline without its own card wrapper */}
               <LeadFormSection
                 leadEnabled={leadEnabled}
@@ -437,7 +432,6 @@ export function BotForm({ bot }: BotFormProps) {
                 onUrlChange={setBookingUrl}
               />
             </div>
-          )}
         </form>
       </div>
 
